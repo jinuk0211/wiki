@@ -3,7 +3,12 @@ sys.path.insert(0, "../self_rag/retrieval_lm")
 from passage_retrieval import Retriever
 
 retriever = Retriever({})
-retriever.setup_retriever_demo("facebook/contriever-msmarco", "enwiki_2020_intro_only/enwiki_2020_dec_intro_only.jsonl", "enwiki_2020_intro_only/enwiki_dec_2020_contriever_intro/*",  n_docs=5, save_or_load_index=False)
+#retriever.setup_retriever_demo("facebook/contriever-msmarco", "enwiki_2020/filtered.tsv", "enwiki_2020/enwiki_2020_contriever/*",  n_docs=5, save_or_load_index=False)
+retriever2 = Retriever({})
+#retriever2.setup_retriever_demo("facebook/contriever-msmarco", "enwiki_2020/filtered1.tsv", "enwiki_2020/enwiki_2020_contriever2/*",  n_docs=5, save_or_load_index=False)
+retriever3 = Retriever({})
+#retriever3.setup_retriever_demo("facebook/contriever-msmarco", "enwiki_2020/filtered2.tsv", "enwiki_2020/enwiki_2020_contriever3/*",  n_docs=5, save_or_load_index=False)
+#:nwiki_2020_intro_only/enwiki_dec_2020_contriever_intro/*"
 # workspace/self-rag/retrieval_lm/enwiki_2020_intro_only/enwiki_2020_dec_intro_only.jsonl
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer, AutoProcessor, AutoModelForCausalLM
@@ -669,16 +674,19 @@ class Generator:
         return 'not scored'
 
 
-    def final_output(self, user_question, subquestion_list,subanswer_list,context, get_most_likely=True):
+    def final_output(self, user_question, subquestion_list,subanswer_list,context ='', get_most_likely=True):
               #! generate potential answer to the user question
         final_answer = []
         # if self.enable_potential_score:
         print('-----------------------최종 프롬프트-----------------------------')
-        potential_score_input = "context: " + context 
+        if context =='':
+          potential_score_input = ""
+        else:
+          potential_score_input = "context: " + context + "\n"
         for subq, suba in zip(subquestion_list, subanswer_list):
             # if reach_terminal_subquestion(subq, user_question):
             #     final_answer.append(None)
-            potential_score_input += "\n" + "subquestion: " + subq + "\n" +"answer: " + suba + '\n'
+            potential_score_input += "subquestion: " + subq + "\n" +"answer: " + suba + '\n'
         potential_score_input += "original question: " + user_question + "\n"
         potential_score_input += "Please answer the original question based on subquestion-answer pairs and context"
         print(f'최종 프름프트:{potential_score_input}')

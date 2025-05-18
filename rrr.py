@@ -8,30 +8,68 @@ from datasets import load_dataset, Dataset
 import torch
 import time
 from evaluate import run_evaluation
-
+import argparse
 
 #tokenizer, model = load_vLLM_model(cfg.model_ckpt, cfg.seed, cfg.tensor_parallel_size, cfg.half_precision)
 model, tokenizer = LLM('qwen2.5')
-ds = load_dataset("Idavidrein/gpqa", "gpqa_diamond")
 split = 10
-df = ds['train'].select(range(split)).to_pandas()
 output_list = []
 input_list = []
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Subquestion generator script.")
+    
+    parser.add_argument(
+        '--ds',
+        type=str,
+        default='popqa',
+        help='name of data'
+    )        
+    return parser.parse_args()
+
+
 def _parse(text):
     return text.strip('"').strip("**")
+    
 if __name__ == "__main__":
-  # retriever.search_document_demo("What is the relationship between the lifetime of a quantum state and its energy uncertainty?",1)
-# for i in range(len(ds['train']['Question'])):
+
+    ds = load_dataset("Idavidrein/gpqa", "gpqa_diamond")
+    df = ds['train'].to_pandas()
+  elif args.ds == 'popqa':
+    df = pd.read_csv("hf://datasets/akariasai/PopQA/test.tsv", sep="\t")
+  elif args.ds == 'arc':
+    splits = {'train': 'ARC-Challenge/train-00000-of-00001.parquet', 'test': 'ARC-Challenge/test-00000-of-00001.parquet', 'validation': 'ARC-Challenge/validation-00000-of-00001.parquet'}
+    df = pd.read_parquet("hf://datasets/allenai/ai2_arc/" + splits["train"])
+  elif args.ds == 'musique':
+    ds = load_dataset("dgslibisey/MuSiQue")
+    
+    
   with torch.no_grad():
     for row in range(split):
-        #question = ds['train']['Question'][i]
-        question = ds['train']['Question'][row]
-        """Provide a better search query for web search engine to answer the given question, end the queries with ¡¯**¡¯. Question: {x} Answer:"""
-        question = llm_proposal(model,tokenizer, question)
-        prompt = question + 'A)' + ds['train'][row]['Correct Answer'].replace('\n','') + ' B)' + ds['train'][row]['Incorrect Answer 1'].replace('\n','') + ' C)' + ds['train'][row]['Incorrect Answer 2'].replace('\n','') + ' D)' + ds['train'][row]['Incorrect Answer 3'].replace('\n','')
-           
-        input_list.append(question)
-        retrieved_document = retriever.search_document_demo(question, 1)
+        if args.ds == 'gpqa':
+          question = ds['train']['Question'][row]
+          
+        elif args.ds == 'popqa':
+          question = df['question'][row]
+      
+        elif args.ds == 'arc':
+          question = df['question'][row]
+          
+        
+        rrr_prompt= """Provide a better search query for web search engine to answer the given question, end the queries with ¡¯**¡¯. Question: {x} Answer:"""
+        rrr_question = llm_proposal(model,tokenizer, rrr_prompt.format(x=question))
+        input_list.append(rrr_question)
+        
+        retrieved_document = retriever.search_document_demo(rrr_question, 1)
+
+        if args.ds == 'gpqa':
+          prompt = rrr_question + 'A)' + ds['train'][row]['Correct Answer'].replace('\n','') + ' B)' + ds['train'][row]['Incorrect Answer 1'].replace('\n','') + ' C)' + ds['train'][row]['Incorrect Answer 2'].replace('\n','') + ' D)' + ds['train'][row]['Incorrect Answer 3'].replace('\n','')
+        elif args.ds == 'popqa':
+          prompt = rrr_question 
+        elif args.ds == 'arc':
+          prompt = rrr_question + "\nA)" + df['choices'][row]['text'][0] + " B)" + df['choices'][row]['text'][1] + " C)" + df['choices'][row]['text'][2] + " D)" + df['choices'][row]['text'][3]  
+          
+            
         response = llm_proposal(model,tokenizer, rag_prompt.format(context=retrieved_document[0]['text'],question=prompt))
         print(response)
         final_input = 'output:' + response[0] + "Therefore, the answer is "

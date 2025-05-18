@@ -7,7 +7,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 VALUE_MODEL_DIR = "meta-llama/Llama-3.2-1B-Instruct"
 global_value_model = None
 global_tokenizer = None
-from prompt import complete_query_from_subquery,complete_query_from_ans
+from prompt import complete_query_from_subquery,complete_query_from_ans, complete_query_from_context
 import numpy as np
 import logging
 import openai
@@ -130,11 +130,7 @@ def get_token_probabilities(text, idx, inputs=None):
 
 
 def get_query_token_probabilities(context, query):
-    """
 
-    Returns:
-        list: query部分token的log概率列表
-    """
     global global_value_model, tokenizer
 
     if (
@@ -143,19 +139,19 @@ def get_query_token_probabilities(context, query):
         return []
 
     try:
-        # 先对整个文本做tokenization
+        # ?��??�个?�本?�tokenization
         full_text = context + query
         inputs = global_tokenizer(
             full_text, truncation=True, return_tensors="pt"
         )
 
-        # 单独对前文做tokenization，找到query的起始位置
+        # ?�独对前?�做tokenization，找?�query?�起始位�?
         context_tokens = global_tokenizer(
             context, padding=False, truncation=False, return_tensors="pt"
         )
         query_start_idx = context_tokens["input_ids"].shape[1]
 
-        # 获取query部分的概率，传入已tokenized的inputs
+        # ?�取query?�分?�概?�，传入已tokenized?�inputs
         return get_token_probabilities(full_text, query_start_idx, inputs)
 
     except Exception as e:
@@ -167,17 +163,17 @@ def probability_subquestion_question(ori_query, query, ans_weight=0.75):
 
     try:
 
-        # 计算decomposed query条件下的原始query概率
+        # 计算decomposed query?�件下的?�始query概率
         kl_dcp_text_front = complete_query_from_subquery.format(query=query)
         kl_dcp_probs = get_query_token_probabilities(kl_dcp_text_front, ori_query)
         if not kl_dcp_probs:
             return 0.0
         kl_dcp = -sum(kl_dcp_probs) / len(kl_dcp_probs)
 
-        # 计算加权平均
+        # 计算?�权平均
         kl_loss = kl_dcp
 
-        # 映射到[0,1]区间
+        # ?�射??0,1]?�间
         value = np.exp(-1.8 * (kl_loss - 1.8))
         value = 1 - (1 / (1 + value))
 
@@ -186,11 +182,35 @@ def probability_subquestion_question(ori_query, query, ans_weight=0.75):
     except Exception as e:
         logging.error(f"Error in risk value calculation: {str(e)}")
         return 0.0
+        
+def probability_context_question(ori_query, context, ans_weight=0.75): 
 
+    try:
+
+        # 计算decomposed query?�件下的?�始query概率
+        kl_dcp_text_front = complete_query_from_context.format(context=context)
+        kl_dcp_probs = get_query_token_probabilities(kl_dcp_text_front, ori_query)
+        if not kl_dcp_probs:
+            return 0.0
+        kl_dcp = -sum(kl_dcp_probs) / len(kl_dcp_probs)
+
+        # 计算?�权平均
+        kl_loss = kl_dcp
+
+        # ?�射??0,1]?�间
+        value = np.exp(-1.8 * (kl_loss - 1.8))
+        value = 1 - (1 / (1 + value))
+
+        return float(value)
+
+    except Exception as e:
+        logging.error(f"Error in risk value calculation: {str(e)}")
+        return 0.0
+        
 def probability_subanswer_question(ori_query, answer, ans_weight=0.75):
 
     try:
-        # 计算answer条件下的原始query概率
+        # 计算answer?�件下的?�始query概率
         kl_ans_text_front = complete_query_from_ans.format(answer=answer)
         kl_ans_probs = get_query_token_probabilities(kl_ans_text_front, ori_query)
         if not kl_ans_probs:
@@ -198,10 +218,10 @@ def probability_subanswer_question(ori_query, answer, ans_weight=0.75):
         kl_ans = -sum(kl_ans_probs) / len(kl_ans_probs)
 
 
-        # 计算加权平均
+        # 计算?�权平均
         kl_loss = kl_ans
 
-        # 映射到[0,1]区间
+        # ?�射??0,1]?�间
         value = np.exp(-1.8 * (kl_loss - 1.8))
         value = 1 - (1 / (1 + value))
 
@@ -260,15 +280,15 @@ def llm_proposal(model=None,tokenizer=None,prompt=None,model_name='qwen'):
 
     #     output = model.generate(**inputs, max_new_tokens=512)
     #     output_text = processor.decode(output[0])
-    #     split_text = output_text.split("<|end_header_id|>", 2)  # 최대 2번만 분할
+    #     split_text = output_text.split("<|end_header_id|>", 2)  # 최�? 2번만 분할
 
-    #     # 두 번째 "<|end_header_id|>" 이후 부분 가져오기 (있다면)
+    #     # ??번째 "<|end_header_id|>" ?�후 부�?가?�오�?(?�다�?
     #     cleaned_text = split_text[2].strip()
     #     cleaned_text = cleaned_text.replace("<|eot_id|>", "")
-    #     # print('get_proposal:최종 텍스트:')
+    #     # print('get_proposal:최종 ?�스??')
     #     # print(cleaned_text)
     #     return cleaned_text
 
-    #     # 🎯 출력 결과
+    #     # ?�� 출력 결과
     #     reply = response['choices'][0]['message']['content'].strip()
     #     return reply

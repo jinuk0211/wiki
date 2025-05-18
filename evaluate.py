@@ -130,9 +130,9 @@ def run_evaluation(df, input_list, output_list,start_index=0, dataset_name='gpqa
     domain_metrics = {}
 
     for idx, row in df.iterrows():
-        # row는 pandas Series (딕셔너리처럼 접근 가능)
-        row['Output'] = output_list[idx]
-        # DataFrame에 반영하려면
+        
+        
+        
         df.at[idx, 'Output'] = row['Output']    
 
         if dataset_name in ['gpqa', 'medmcqa']:
@@ -140,14 +140,17 @@ def run_evaluation(df, input_list, output_list,start_index=0, dataset_name='gpqa
             # labeled_choice_answer = item["Correct Answer"]
             mode = 'choose'
         elif dataset_name in ['math500', 'aime', 'amc']:
-            labeled_answer = item["answer"]
+            labeled_answer = df.at["answer"]
             mode = 'gen'
         elif dataset_name in ['nq', 'triviaqa', 'hotpotqa', 'musique', 'bamboogle', '2wiki']:
-            labeled_answer = item["answer"]
+            labeled_answer = df.at["answer"]
             mode = 'qa'
         elif dataset_name in ['pubhealth']:
             labeled_answer = item["answer"]
             mode = 'choose'
+        elif dataset_name in ['popqa']:
+            labeled_answer = df.at[idx,"possible_answers"]
+            mode = 'qa'
         else:
             raise ValueError(f"Unknown dataset_name: {dataset_name}")
 

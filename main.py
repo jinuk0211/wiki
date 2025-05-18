@@ -2,7 +2,7 @@ from collections import defaultdict
 from evaluator import GPQAEvaluator
 from generator import Generator, load_vLLM_model, generate_with_vLLM_model, LLM
 from prompt import rag_prompt, eval_prompt
-from generator import retriever
+#from generator import retriever
 import numpy as np
 from cfg import cfg
 from huggingface_hub import login
@@ -13,8 +13,9 @@ import time
 import random
 from evaluate import run_evaluation
 login('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')
-
 model_name = "Qwen/Qwen2.5-7B-Instruct"
+
+
 global global_value_model, global_tokenizer
 model,tokenizer=LLM(model='qwen2.5')
 global_value_model = model       
@@ -23,16 +24,27 @@ evaluator = GPQAEvaluator()
 #tokenizer, model = load_vLLM_model(cfg.model_ckpt, cfg.seed, cfg.tensor_parallel_size, cfg.half_precision)
 generator = Generator(cfg, tokenizer, model, evaluator)
 ds = load_dataset("Idavidrein/gpqa", "gpqa_diamond")
-split = 100
+split = 10
 df = ds['train'].select(range(split)).to_pandas()
-# 변수설정
 #reranker = True
 reranker = False
 rag_only_one = False
 critic = False
 output_list = []
 input_list = []
+
 import argparse
+from langchain_community.retrievers import WikipediaRetriever
+
+retriever = WikipediaRetriever()
+
+import os, sys
+sys.path.insert(0, "../self_rag/retrieval_lm")
+from passage_retrieval import Retriever
+
+retriever = Retriever({})
+retriever.setup_retriever_demo("facebook/contriever-msmarco", "enwiki_2020/filtered.tsv", "enwiki_2020/enwiki_2020_contriever/*",  n_docs=5, save_or_load_index=False)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Subquestion generator script.")
@@ -83,7 +95,7 @@ if __name__ == "__main__":
       for subquestion in top3_subquestions:
         best_score = float('-inf')
         if reranker: #reranker
-          시retrieved_documents = retriever.search_document_demo(subquestion, 3)
+          retrieved_documents = retriever.search_document_demo(subquestion, 3)
           for retrieved_document in retrieved_documents:
             # score = llm_proposal(eval_prompt.format(rag_prompt.format(retrieved_document,subquestion)))
             score = generator.score(rag_prompt.format(context=retrieved_document['text'],question=subquestion))
