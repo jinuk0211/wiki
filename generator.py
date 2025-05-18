@@ -528,8 +528,72 @@ class Generator:
 #     self.generator.generate_subquestions(
 #                     user_question=self.user_question, solution_trace=self.solution_trace, paraphrased=self.paraphrased
 #                 ))
+    def subq(self, user_question: str, question_list, answer_list):
+        decompose_prompt = """Given a question, please decompose it into sub-questions. For each sub-question, please answer it in one complete sentence, ending with "The answer is ". When the original question is answerable, please start the subquestion with "Now we can answer the question: <original question>".
 
+Question: Who was the president in 1980 of the country that has Azad Kashmir?
+subuestion 1: Which country contains Azad Kashmir?
+subanswer 1: The answer is: Pakistan.
+subquestion 2: Who was the president of Pakistan in 1980?
+subanswer 2: The answer is: Muhammad Zia-ul-Haq.
+subquestion 3: Now we can answer the question: Who was the president in 1980 of the country that has Azad Kashmir?
+subanswer 3: The answer is: Muhammad Zia-ul-Haq."""
+        existing_subquestions_and_subanswers, next_subquestion_id = concat_subqs_and_subas(question_list, answer_list)        
+        io_input = (
+            decompose_prompt
+            + "\n\n"
+            + f"Main question: {user_question}"
+            + "\n"
+            + existing_subquestions_and_subanswers
+            + f"subuestion {next_subquestion_id}:"
+        )
+        io_output_list = self.io.generate(
+            io_input,
+            max_tokens=128,
+            num_return=5,
+            stop_tokens=[
+                "Answer",
+                "Answer ",
+                "answer",
+                f"subanswer {next_subquestion_id}",
+                f"subanswer {next_subquestion_id}:",
+                f"subanswer {next_subquestion_id}: ",
+            ],
+        )
+        io_output_list
+        
+    def suba(self, user_question: str, subquestion_list, subanswer_list):
+        decompose_prompt = """Given a question, please decompose it into sub-questions. For each sub-question, please answer it in one complete sentence, ending with "The answer is ". When the original question is answerable, please start the subquestion with "Now we can answer the question: <original question>".
 
+Question: Who was the president in 1980 of the country that has Azad Kashmir?
+subuestion 1: Which country contains Azad Kashmir?
+subanswer 1: The answer is: Pakistan.
+subquestion 2: Who was the president of Pakistan in 1980?
+subanswer 2: The answer is: Muhammad Zia-ul-Haq.
+subquestion 3: Now we can answer the question: Who was the president in 1980 of the country that has Azad Kashmir?
+subanswer 3: The answer is: Muhammad Zia-ul-Haq."""
+        existing_subquestions_and_subanswers, next_subquestion_id = concat_subqs_and_subas(question_list, answer_list)
+        io_input = (
+            decompose_prompt
+            + "\n\n"
+            + f"Main question: {user_question}"
+            + "\n"
+            + existing_subquestions_and_subanswers
+            #+ f"Question {self.question_index}.{next_subquestion_id}: "
+            #+ subquestion
+            + "\n"
+            + f"Please use one complete sentence to answer the question: {self.question_index}.{next_subquestion_id}."
+        )       
+        output_list = self.io.generate(
+            io_input_list,
+            max_tokens=512,
+            num_return=num_return,
+            stop_tokens=['\n\n\n',
+                f"subquestion {next_subquestion_id + 1}",
+                'subquestion'
+            ],
+        )        
+        return output_list
     def generate_subquestions(
         self,
         user_question: str,
@@ -576,10 +640,7 @@ class Generator:
         #questions = [s.strip() for s in sentences if s.strip().endswith('?')]
         if len(subquestion_list) == 0:
           print('re 모듈로 추출안됨')
-        #sections = re.split(r'(?=\d+\.)', one_line)
-        
-        # 3) 앞뒤 공백 제거
-        #sections = [s.strip() for s in sections if s.strip()]        
+        #sections = re.split(r'(?=\d+\.)', one_line)    
         
         #if len(subquestion_list) < 1:
             #subquestion_list = list(set([o.strip() for o in questions]))
@@ -588,8 +649,7 @@ class Generator:
 
     def subanswer(self,
         user_question: str,
-        # solution_trace: Dict[int, Dict[str, str]],
-        # paraphrased: bool
+       
         subquestion_list,
         num_subanswer):
         #! generate subanswers to the subquestions generated above
